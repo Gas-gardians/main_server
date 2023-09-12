@@ -16,7 +16,7 @@ const dataSchema = new mongoose.Schema({ // 스키마 정의
   humidity: Number
 });
 
-const work_gasdata = new mongoose.Schema({ //유해가스 데이터 
+const work_gasdata = new mongoose.Schema({ //유해가스 데이터
   device_id: String,
   work_id: String,
   O2: Int,
@@ -26,7 +26,7 @@ const work_gasdata = new mongoose.Schema({ //유해가스 데이터
   NH3: Int,
   record_time: String,
   work_time: Int
-}); 
+});
 
 const work_tempdata = new mongoose.Schema({ //온습도 데이
   device_id: String,
