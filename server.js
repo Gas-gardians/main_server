@@ -2,8 +2,8 @@ const express = require('express');
 const app = express();
 const port = 3000;
 
-const apiRoutes = require('./apiRoutes');
-const webRoutes = require('./webRoutes');
+const apiRoutes = require('./routes/apiRoutes');
+const webRoutes = require('./routes/webRoutes');
 
 // 미들웨어 설정
 app.use(express.json()); // JSON 데이터 파싱을 위한 미들웨어
