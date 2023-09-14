@@ -24,7 +24,7 @@ const deviceInfoSchema = new mongoose.Schema({ // Device_Info 스키마
 });
 // 작업자 정보
 const userInfoSchema = new mongoose.Schema({ // User_Info 스키마 
-  user_id: { type: String, default: null },
+  user_id: { type: String, default: null, require: true },
   user_name: { type: String, default: null },
   user_birth: { type: String, default: null },
   user_health: { type: String, default: null },
