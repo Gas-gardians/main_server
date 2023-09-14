@@ -1,102 +1,101 @@
 const mongoose = require('mongoose');
 
-
-// 유해가스 데이터
-const workGasDataSchema = new mongoose.Schema({ // Work_GasDATA 테이블 스키마
-    device_id: { type: String, required: true },
-    work_id: { type: String, required: true },
-    O2: { type: Number, default: null },
-    H2S: { type: Number, default: null },
-    CO: { type: Number, default: null },
-    NO2: { type: Number, default: null },
-    NH3: { type: Number, default: null },
+// 환경 측정 데이터
+const workEnvDataSchema = new mongoose.Schema({ // Work_EnvData 스키마
+  device_id: { type: String, required: true },
+  work_id: { type: String, required: true },
+  O2: { type: [Number], default: null },
+    H2S: { type: [Number], default: null },
+    CO: { type: [Number], default: null },
+    NO2: { type: [Number], default: null },
+    NH3: { type: [Number], default: null },
     record_time: { type: Date, default: null },
-    elapsed_time: { type: Number, default: null },
-});
-// 온습도 데이터
-const workTempDataSchema = new mongoose.Schema({ // Work_tempDATA 테이블 스키마
-    device_id: { type: String, required: true },
-    work_id: { type: String, required: true },
-    record_time: { type: Date, default: null },
-    env_temp: { type: Number, default: null },
-    env_humid: { type: Number, default: null },
-    env_discomfort: { type: Number, default: null },
-});
-// 작업상태 데이터
-const workStatusSchema = new mongoose.Schema({ // Work_Status 테이블 스키마
-    device_id: { type: String, required: true },
-    work_id: { type: String, required: true },
-    status: { type: Number, default: null },
-    record_time: { type: Date, default: null },
-    work_specifics: { type: String, default: null },
-});
-
-
-// 작업환경 정보
-const workEnvironmentSchema = new mongoose.Schema({ // Work_Environment 테이블 스키마
-    work_id: { type: String, required: true },
-    admin_id: { type: String, default: null },
-    user_list: { type: [String], default: null },
-    env_status: { type: [String], default: null },
-    env_code: { type: [String], default: null },
-    env_specifics: { type: String, default: null },
-    start_time: { type: Date, default: null },
-    end_time: { type: Date, default: null },
-    gas_type: { type: Number, required: true },
-    device_id: { type: String, required: true },
-});
-// 유해가스 정보
-const gasInformationSchema = new mongoose.Schema({ // gas_infomation 테이블 스키마
-    gas_type: { type: Number, required: true },
-    gas_info: { type: String, default: null },
-    gas_guide: { type: String, default: null },
+    temp: { type: Number, default:null },
+    humid: { type: Number, default: null },
+    discomfort: { type: Number, default: null }
 });
 
 
 // 작업기기 정보
-const deviceInfoSchema = new mongoose.Schema({ // Device_Info 테이블 스키마
-  device_id: { type: String, required: true, unique: true },
+const deviceInfoSchema = new mongoose.Schema({ // Device_Info 스키마
+  device_id: { type: String, required: true },
+  user_id: { type: String, required: true },
+  work_id: { type: String, required: true, unique: true }
+});
+// 작업자 정보
+const userInfoSchema = new mongoose.Schema({ // User_Info 스키마 
   user_id: { type: String, default: null },
   user_name: { type: String, default: null },
   user_birth: { type: String, default: null },
   user_health: { type: String, default: null },
+  specifics: { type: String, default: null },
+  work_id: { type: String, default: null }
+});
+// 작업 정보 
+const workInfoSchema = new mongoose.Schema({ // Work_Info 스키마
+  work_id: { type: String, required: true },
+  admin_info: { type: [String], required: true }, // [책임자 이름, 전화번호, 현장주소, 작업정보]
+  env_status: { type: String, default: null },
+  env_coce: { type: [String], default: null },
+  start_time: { type: Date, default: null },
+  end_time: { type: Date, default: null }
+});
+
+// 작업상태
+const workStatusSchema = new mongoose.Schema({ // Work_Status 스키마
+  device_id: { type: String, required: true },
+  work_id: { type: String, required: true },
+  status: { type: Number, default: null },
+  work_specifics: { type: String, default: null },
+  record_time: { type: Date, default: Date.now() }
 });
 
 
+// 로그인 정보
+const accessControlSchema = new mongoose.Schema({ // Access_Control 스키마
+  login_id: { type: String, required: true, unique: true },
+  login_pw: { type: String, required: true, unique: true },
+  auth: { type: Boolean, required: true }
+});
+// 유해가스 정보
+const gasInfoSchema = new mongoose.Schema({ // Gas_Info 스키마
+    gas_type: { type: Number, required: true },
+    gas_info: { type: String, default: null },
+    gas_guide: { type: String, default: null }
+});
 // 초기 기기점검
-const initialDeviceCheckSchema = new mongoose.Schema({ // Initial_deviceCheck 테이블 스키마
+const initialDeviceCheckSchema = new mongoose.Schema({ // Initial_deviceCheck 스키마
   admin_id: { type: String, required: true },
   device_id: { type: String, required: true },
-  Is_check: { type: Boolean, default: null },
-  Is_connect: { type: Boolean, default: null },
-  Is_shock: { type: Boolean, default: null },
-  Is_help: { type: Boolean, default: null },
-  battery: { type: Number, default: null },
-  Is_camera: { type: Boolean, default: null },
-  Is_dark: { type: Boolean, default: null },
+  Is_check: { type: Boolean, default: false },
+  Is_connect: { type: Boolean, default: false },
+  Is_shock: { type: Boolean, default: false },
+  Is_help: { type: Boolean, default: false },
+  battery: { type: Number, default: 0 },
+  Is_camera: { type: Boolean, default: false },
+  Is_dark: { type: Boolean, default: false }
 });
 
 
 // 데이터 모델 생성
-const WorkGasData = mongoose.model('Work_GasDATA', workGasDataSchema);
-const WorkTempData = mongoose.model('Work_tempDATA', workTempDataSchema);
-const WorkStatus = mongoose.model('Work_Status', workStatusSchema);
-
-const WorkEnvironment = mongoose.model('Work_Environment', workEnvironmentSchema);
-const GasInformation = mongoose.model('gas_infomation', gasInformationSchema);
-
-const DeviceInfo = mongoose.model('Device_Info', deviceInfoSchema);
-
-const InitialDeviceCheck = mongoose.model('Initial_deviceCheck', initialDeviceCheckSchema);
+const workEnv = mongoose.model('Work_EnvData', workEnvDataSchema);
+const deviceInfo = mongoose.model('Device_Info', deviceInfoSchema);
+const userInfo = mongoose.model('User_Info', userInfoSchema);
+const workInfo = mongoose.model('Work_Info', workInfoSchema);
+const workStatus = mongoose.model('Work_Status', workStatusSchema);
+const accessControl = mongoose.model('Access_Control', accessControlSchema);
+const gasInfo = mongoose.model('Gas_Info', gasInfoSchema);
+const initialDeviceCheck = mongoose.model('Initial_deviceCheck', initialDeviceCheckSchema);
 
 
 // 모듈 내보내기
 module.exports = {
-    WorkGasData,
-    WorkTempData,
-    WorkStatus,
-    WorkEnvironment,
-    GasInformation,
-    DeviceInfo,
-    InitialDeviceCheck
+    workEnv,
+    deviceInfo,
+    userInfo,
+    workInfo,
+    workStatus,
+    accessControl,
+    gasInfo,
+    initialDeviceCheck
 };
