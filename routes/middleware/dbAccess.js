@@ -18,9 +18,9 @@ const workEnvDataSchema = new mongoose.Schema({ // Work_EnvData 스키마
 
 // 작업기기 정보
 const deviceInfoSchema = new mongoose.Schema({ // Device_Info 스키마
-  device_id: { type: String, required: true },
-  user_id: { type: String, required: true },
-  work_id: { type: String, required: true, unique: true }
+  device_id: { type: String, required: true, unique: true },
+  user_id: { type: String, default: null },
+  work_id: { type: String, default: null }
 });
 // 작업자 정보
 const userInfoSchema = new mongoose.Schema({ // User_Info 스키마 

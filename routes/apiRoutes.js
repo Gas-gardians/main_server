@@ -43,6 +43,7 @@ function createDataHandler(Model) {
   };
 }
 
+
 // 데이터 내보내기 라우트
 function getDataHandler(collectionName, dataform) {
   return async (req, res) => {
@@ -64,6 +65,8 @@ function getDataHandler(collectionName, dataform) {
 // 데이터 받아오기 라우트
 
 router.post('/post_envData', createDataHandler(workEnv)); // H/W - 센서 데이터 전송
+router.post('/post_gasInfo', createDataHandler(gasInfo)); // Web - 유해가스 정보 등록
+router.post('/signUp', createDataHandler(accessControl)); // Web - 관리자 계정 회원가입
 router.post('/access_device', createDataHandler(deviceInfo)); // H/W - 기기 시작 시 서버에 기기id 등록
 /* 
  {
@@ -72,10 +75,25 @@ router.post('/access_device', createDataHandler(deviceInfo)); // H/W - 기기 �
     "work_id": 지정되지 않음
  }
 */
+router.post('/post_workInfo',(req, res) => { // Web - 웹에서 새로운 작업 생성 시 
+  try {
+    const data = req.body;
+    const expCompare = /^W/.test(data.work_id);
+    if(!expCompare){//기존 
+      const randNum = Math.floor(Math.random() * 1000);
+      const formatId = randNum.toString().padStart(3, '0');
+      data.work_id = 'W' + formatId;
+    }; 
+    const newData = new workInfo(data);
+    newData.save();
+    console.log(`${workInfo.modelName} saved successfully. Work_id: ` + data.work_id );
+    res.status(200).json(data.work_id);
+  } catch (error) {
+    console.error(`Error saving ${workInfo.modelName}:`, error);
+    res.sendStatus(500);
+  }
+}); 
 
-router.post('/post_gasInfo', createDataHandler(gasInfo)); // Web - 유해가스 정보 조회
-router.post('/signUp', createDataHandler(accessControl)); // Web - 관리자 계정 회원가입
-router.post('/post_workInfo', createDataHandler(workInfo)); // Web - 웹에서 새로운 작업 생성 시
 /* 
  {
     "work_id": 서버에서 랜덤으로 배정(key),
@@ -86,33 +104,93 @@ router.post('/post_workInfo', createDataHandler(workInfo)); // Web - 웹에서 �
     "end_time": 웹에서 작업 종료 시 기록
  }
 */
-router.post('/add_user', createDataHandler(userInfo)); // Web - 웹에서 관리자 권한으로 작업자 등록
-router.post('/link_user', (req, res) => {// Web- [작업자 - 기기] 연결시 기기정보에 작업id 업데이트
-  const updateData = '';
-  if(req.body.user_id != null){
-    const query = { user_id: req.body.user_id};
-    if(req.body.work_id != null){
-      const update = { $set: { work_id: req.body.work_id } };
-      try {
-        updateData = userInfo.findOneAndUpdate(query, update,{ new: true });
-      } catch (error) {
-        throw error;
-      }
-    } else{ // 수신 받은 데이터에서 work_id
-      console.log("/link user: work_id Data found."); 
-      res.status(404).send("/link user: work_id Data found.");
-    }
-    
-  }else { // User_Info에서 해당 사용자id를 못찾았을때
+router.post('/add_user', (req,res) => { // Web - 웹에서 관리자 권한으로 작업자 등록
+  try {
+    const data = req.body;
+    const randNum = Math.floor(Math.random() * 1000);
+    const formatId = randNum.toString().padStart(3, '0');
+    data.user_id = 'U' + formatId;
+
+    const newData = new userInfo(data);
+    newData.save();
+    console.log(`${userInfo.modelName} saved successfully. user_id: ` + data.user_id );
+    res.sendStatus(200);
+  } catch (error) {
+    console.error(`Error saving ${userInfo.modelName}:`, error);
+    res.sendStatus(500);
+  }
+}); 
+/**
+ * {
+ *    "user_id": 서버에서 랜덤으로 배정(key),
+ *    "user_name": 이름,
+ *    "user_birth": 생년월일,
+ *    "user_health": 건강 특이사항,
+ *    "specifics": 특이사항
+ * }
+ */
+// 여기서 부터 해야함 지금 오류남
+router.post('/link_user', (req, res) => {// Web- [작업자 - 기기] 연결시 기기정보에 work_id, user_id & 작업자정보 work_id, device_id 업데이트
+  const updateUserData = '', updateDeviceData = '';
+  let status = true;
+  const user_id = req.body.user_id;
+  const work_id = req.body.work_id;
+  const device_id = req.body.device_id;
+  if(user_id == null){ // 사용자id 값이 없을때
     console.log("/link user: No matching user_id found."); 
     res.status(404).send("/link user: No matching user_id found.");
+    status = false;
   }
+  if(work_id == null){
+    console.log("/link user: work_id Data found."); 
+    res.status(404).send("/link user: work_id Data found.");
+    status = false;
+  }
+  if(device_id == null){
+    console.log("/link user: work_id Data found."); 
+    res.status(404).send("/link user: work_id Data found.");
+    status = false;
+  }
+  if(status){
+    const queryUser = { user_id: user_id};
+    const queryDevice = { device_id: device_id };
+    const updateUser = { $set: { work_id: work_id, user_id: user_id } };
+    const updateDevice = { $set: { work_id: work_id, device_id: device_id } };
 
-  if(updateData.length > 0){
-    console.log("Data updated successfully:", updateData);
-    res.sendStatus(200);
+    try {
+      updateUserData = userInfo.findOneAndUpdate(queryUser, updateUser,{ new: true });
+    } catch (error) {
+      throw error;
+    }
+
+    try {
+      updateDeviceData = deviceInfo.findOneAndUpdate(queryDevice, updateDevice,{ new: true });
+    } catch (error) {
+      throw error;
+    }
+
+    if(updateUserData.length > 0 && updateDeviceData.length > 0){
+      console.log("Data updated successfully:", updateUserData, updateDeviceData);
+      res.status(200).send("성공적으로 업데이트 되었습니다.");
+    }
   }
 });
+/**
+ * UserInfo
+ * { 
+ *    "user_id": 선택된 사용자id,
+ *    "work_id": 연결된 작업id,
+ *    "device_id": 연결된 기기id
+ * }
+ * 
+ * DeviceInfo
+ * {
+ *    "device_id": 해당 기기id,
+ *    "user_id": 연결된 작업자id,
+ *    "work_id": 연결된 작업id
+ * }
+ * 
+ */
 
 
 router.post('/get_userList', async (req,res) => { // Web - 관리자가 작업자 리스트를 조회하려할때
