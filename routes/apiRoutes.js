@@ -112,7 +112,7 @@ router.post('/add_user', (req,res) => { // Web - 웹에서 관리자 권한으�
     data.user_id = 'U' + formatId;
 
     const newData = new userInfo(data);
-    newData.save();
+    newData.save();  
     console.log(`${userInfo.modelName} saved successfully. user_id: ` + data.user_id );
     res.sendStatus(200);
   } catch (error) {
@@ -129,9 +129,8 @@ router.post('/add_user', (req,res) => { // Web - 웹에서 관리자 권한으�
  *    "specifics": 특이사항
  * }
  */
-// 여기서 부터 해야함 지금 오류남
 router.post('/link_user', (req, res) => {// Web- [작업자 - 기기] 연결시 기기정보에 work_id, user_id & 작업자정보 work_id, device_id 업데이트
-  const updateUserData = '', updateDeviceData = '';
+  let updateUserData = '', updateDeviceData = '';
   let status = true;
   const user_id = req.body.user_id;
   const work_id = req.body.work_id;
@@ -158,21 +157,23 @@ router.post('/link_user', (req, res) => {// Web- [작업자 - 기기] 연결시 
     const updateDevice = { $set: { work_id: work_id, device_id: device_id } };
 
     try {
+      
       updateUserData = userInfo.findOneAndUpdate(queryUser, updateUser,{ new: true });
+      console.log('updateUserData success');
     } catch (error) {
+      console.log('updateUserData failed');
       throw error;
     }
 
     try {
       updateDeviceData = deviceInfo.findOneAndUpdate(queryDevice, updateDevice,{ new: true });
+      console.log('updateDeviceData success');
     } catch (error) {
+      console.log('updateDeviceData failed');
       throw error;
     }
-
-    if(updateUserData.length > 0 && updateDeviceData.length > 0){
-      console.log("Data updated successfully:", updateUserData, updateDeviceData);
-      res.status(200).send("성공적으로 업데이트 되었습니다.");
-    }
+    console.log("Data updated successfully:", updateUserData, updateDeviceData);
+    res.status(200).send("성공적으로 업데이트 되었습니다.");
   }
 });
 /**
@@ -191,7 +192,24 @@ router.post('/link_user', (req, res) => {// Web- [작업자 - 기기] 연결시 
  * }
  * 
  */
-
+router.post('/test2_update_user', (req, res) => {
+  const user_id = req.body.user_id;
+  const work_id = req.body.work_id;
+  
+  userInfo.findOneAndUpdate(
+    { user_id: user_id},  // 조건: name이 'Alice'인 문서
+    { $set: { work_id: work_id } },  // 변경: age를 30으로 설정
+    { new: true }  // 업데이트 후의 문서를 반환 (기본값은 업데이트 전 문서를 반환)
+  )
+  .then(updatedUserInfo => {
+    console.log('Updated document:', updatedUserInfo);
+    res.status(200).json(updatedUserInfo);
+  })
+  .catch(error => {
+    console.error('Error updating document:', error);
+    res.status(404).send("error");
+  });
+});
 
 router.post('/get_userList', async (req,res) => { // Web - 관리자가 작업자 리스트를 조회하려할때
   try {
