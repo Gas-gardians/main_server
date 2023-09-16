@@ -129,51 +129,63 @@ router.post('/add_user', (req,res) => { // Web - 웹에서 관리자 권한으�
  *    "specifics": 특이사항
  * }
  */
-router.post('/link_user', (req, res) => {// Web- [작업자 - 기기] 연결시 기기정보에 work_id, user_id & 작업자정보 work_id, device_id 업데이트
-  let updateUserData = '', updateDeviceData = '';
-  let status = true;
+router.post('/link_user', (req, res) => { // Web- [작업자 - 기기] 연결시 기기정보에 work_id, user_id & 작업자정보 work_id, device_id 업데이트
+  let isData = true;
   const user_id = req.body.user_id;
   const work_id = req.body.work_id;
   const device_id = req.body.device_id;
   if(user_id == null){ // 사용자id 값이 없을때
     console.log("/link user: No matching user_id found."); 
     res.status(404).send("/link user: No matching user_id found.");
-    status = false;
+    isData = false;
   }
   if(work_id == null){
     console.log("/link user: work_id Data found."); 
     res.status(404).send("/link user: work_id Data found.");
-    status = false;
+    isData = false;
   }
   if(device_id == null){
     console.log("/link user: work_id Data found."); 
     res.status(404).send("/link user: work_id Data found.");
-    status = false;
+    isData = false;
   }
-  if(status){
-    const queryUser = { user_id: user_id};
-    const queryDevice = { device_id: device_id };
-    const updateUser = { $set: { work_id: work_id, user_id: user_id } };
-    const updateDevice = { $set: { work_id: work_id, device_id: device_id } };
+  if(isData){
+    let status = true;
+    let updatedUser, updatedDevice;
+    userInfo.findOneAndUpdate(
+      { user_id: user_id},  
+      { $set: { work_id: work_id, device_id: device_id } }, 
+      { new: true }  // 업데이트 후의 문서를 반환 (기본값은 업데이트 전 문서를 반환)
+    )
+    .then(updatedUser => {
+      console.log('Updated document:', updatedUser);
+      // res.status(200).json(updatedUser);
+    })
+    .catch(error => {
+      console.error('Error updating document:', error);
+      status  = !status;
+    }); 
 
-    try {
-      
-      updateUserData = userInfo.findOneAndUpdate(queryUser, updateUser,{ new: true });
-      console.log('updateUserData success');
-    } catch (error) {
-      console.log('updateUserData failed');
-      throw error;
+    deviceInfo.findOneAndUpdate(
+      { device_id: device_id},  
+      { $set: { work_id: work_id, user_id: user_id } },  
+      { new: true }  // 업데이트 후의 문서를 반환 (기본값은 업데이트 전 문서를 반환)
+    )
+    .then(updatedDevice => {
+      console.log('Updated document:', updatedDevice);
+      // res.status(200).json(updateDeviceData);
+    })
+    .catch(error => {
+      console.error('Error updating document:', error);
+      status  = !status;
+      //res.status(404).send("error");
+    }); 
+    
+    if(status){
+      res.status(200).json(updatedUser + updatedDevice);
+    }else{
+      res.status(404).send("error");
     }
-
-    try {
-      updateDeviceData = deviceInfo.findOneAndUpdate(queryDevice, updateDevice,{ new: true });
-      console.log('updateDeviceData success');
-    } catch (error) {
-      console.log('updateDeviceData failed');
-      throw error;
-    }
-    console.log("Data updated successfully:", updateUserData, updateDeviceData);
-    res.status(200).send("성공적으로 업데이트 되었습니다.");
   }
 });
 /**
@@ -192,24 +204,6 @@ router.post('/link_user', (req, res) => {// Web- [작업자 - 기기] 연결시 
  * }
  * 
  */
-router.post('/test2_update_user', (req, res) => {
-  const user_id = req.body.user_id;
-  const work_id = req.body.work_id;
-  
-  userInfo.findOneAndUpdate(
-    { user_id: user_id},  // 조건: name이 'Alice'인 문서
-    { $set: { work_id: work_id } },  // 변경: age를 30으로 설정
-    { new: true }  // 업데이트 후의 문서를 반환 (기본값은 업데이트 전 문서를 반환)
-  )
-  .then(updatedUserInfo => {
-    console.log('Updated document:', updatedUserInfo);
-    res.status(200).json(updatedUserInfo);
-  })
-  .catch(error => {
-    console.error('Error updating document:', error);
-    res.status(404).send("error");
-  });
-});
 
 router.post('/get_userList', async (req,res) => { // Web - 관리자가 작업자 리스트를 조회하려할때
   try {
