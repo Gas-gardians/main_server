@@ -63,26 +63,33 @@ function getDataHandler(collectionName, dataform) {
 
 
 // 데이터 받아오기 라우트
-var Device_res = [];
+var DeviceList = [];
+var addedDevice = [];
 router.post('/post_envData', createDataHandler(workEnv)); // H/W - 센서 데이터 전송
 router.post('/post_gasInfo', createDataHandler(gasInfo)); // Web - 유해가스 정보 등록
 router.post('/adminAccount', createDataHandler(accessControl)); // Web - 관리자 계정 회원가입
 router.post('/access_device', (req,res) => { // H/W - 기기 시작 시 서버에 기기id 등록
-  try {
-    const data = req.body;
-    const newData = new deviceInfo(data);
-    newData.save();
-    console.log(`${req.body.device_id} saved successfully`);
-    const device = {
-      device_id: req.body.device_id,
-      device_res: res
-    };
-    Device_res.push(device);//성공했다면 기기는 대기시키고 기기 연결 후에 다시 응답을 보내도록 설정
-    console.log("성공", Device_res.length);
-    // res.sendStatus(200);
-  } catch (error) {
-    console.error(`Error saving ${req.body.device_id}:`, error);
-    res.sendStatus(500);
+  const device_id = req.body.device_id;
+  const index = DeviceList.indexOf(device_id); //이미 등록한 기기라면 생략하기 위함
+  const findAdded = addedDevice.indexOf(device_id); // 연결 완료한건지 확인
+  if(index == -1){ // 기기 등록이 처음이라면
+    try {
+      const data = req.body;
+      const newData = new deviceInfo(data);
+      newData.save();
+      console.log(`${device_id} saved successfully`);
+      DeviceList.push(device_id);
+      res.sendStatus(226);
+    } catch (error) { // 기기 등록 중 오류가 난다면
+      console.error(`Error saving ${device_id}:`, error);
+      res.sendStatus(500);
+    }
+  } else if(findAdded !== -1) { // 이미 연결 완료되었다면
+    addedDevice.splice(findAdded, 1);
+    console.log(`${device_id} : next work start`);
+    res.sendStatus(200);
+  } else {
+    res.status(400).send("아직 연결되지 않았습니다");
   }
 }); 
 /* 
@@ -200,25 +207,13 @@ router.post('/link_user', (req, res) => { // Web- [작업자 - 기기] 연결시
     
     if(status){
       res.status(200).json(updatedUser + updatedDevice);
-      resDevice(device_id);
+      addedDevice.push(device_id);
     }else{
       res.status(404).send("error");
     }
   }
 });
 
-function resDevice(deviceId){ // 대기 시켰던 기기를 연결 성공 후 다시 응답하게 하는 함수
-  const index = Device_res.findIndex(item => item.device_id === deviceId);
-  if(index !== -1){
-    const findRes = Device_res[index];
-    console.log("resDevice success [Device_id]: ", deviceId);
-    Device_res.splice(index, 1);
-    findRes.status(200).send("Connected Successfully");
-  } else {
-    console.log("resDevice success [Device_id]: ", deviceId);
-    findRes.status(500).send("Connected failed");
-  }
-}
 /**
  * UserInfo
  * { 
@@ -253,45 +248,44 @@ router.get('/get_userList', async (req,res) => { // Web - 관리자가 작업자
   getDataHandler(userInfo);
 });
 
-
-
-// function updateDataHandler(Model, query, update) {
-//   return async (req, res) => {
-//     Model.findOneAndUpdate(query, update, { new: true }, (err, updatedData) => {
-//       if (err) {
-//         console.error("Error updating data:", err);
-//         res.sendStatus(500);
-//         return;
-//       }
-  
-//       if (updatedData) {
-//         console.log("Data updated successfully:", updatedData);
-//         res.sendStatus(200);
-//       } else {
-//         console.log("No matching data found.");
-//         res.sendStatus(404);
-//       }
-//     });
-//   };
-// }
-
-
-
-
-
-
+var isWork = false; 
+router.get('/waitingAcc', (req,res)=>{
+  if(isWork) {
+    res.status(200).send("다음 기기 역할 지시");
+  } else {
+    res.status(500).send("Error fetching data");
+  }
+});
 
 
 
 
 const workEnvData = { _id:0, device_id: 1, work_id: 1, O2: 1, H2S: 1, CO: 1, NO2: 1, NH3: 1, record_time: 1, risk_score: 1, temp: 1, humid: 1, discomfort: 1 };
-router.get('/get_envData', getDataHandler('work_envData', workEnvData));
+router.get('/get_envData', getDataHandler('work_envdatas', workEnvData));
 
 const gasInfoData = { _id: 0, gas_type: 1, gas_info: 1, gas_guide: 1 };
-router.get('/get_gasInfo', getDataHandler('gas_info', gasInfoData));
+router.get('/get_gasInfo', getDataHandler('gas_infos', gasInfoData));
 
-const auth = { _id: 0, login_id: 0, login_pw: 0, auth: 1 };
-router.get('/account', getDataHandler('Access_Control', auth));
+// const auth = { _id: 0, login_id: 1, login_pw: 1, auth: 1 };
+router.post('/account', (req,res) => { // 로그인하면 권한 내뱉기
+  const { login_id, login_pw } = req.body;
+  try {
+    // MongoDB에서 해당 login_id와 login_pw에 해당하는 auth를 검색
+    const user = accessControl.findOne({ login_id: login_id, login_pw: login_pw });
+
+    if (user) {
+      console.log("성공");
+      res.status(200).send(true); // 사용자가 있을 경우 해당 auth 응답
+    } else {
+      console.log(user);
+      res.status(404).send('User not found'); // 사용자가 없을 경우 404 응답
+    }
+  } catch (error) {
+    console.error('Error finding user in MongoDB:', error);
+    res.sendStatus(500); // 서버 오류 응답
+  }
+});
+
 
 
 // const workTemp = { _id: 0, device_id: 1, work_id: 1, record_time: 1, env_temp: 1, env_humid: 1, env_discomfort: 1 };
