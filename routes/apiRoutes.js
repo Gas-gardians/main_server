@@ -63,11 +63,28 @@ function getDataHandler(collectionName, dataform) {
 
 
 // 데이터 받아오기 라우트
-
+var Device_res = [];
 router.post('/post_envData', createDataHandler(workEnv)); // H/W - 센서 데이터 전송
 router.post('/post_gasInfo', createDataHandler(gasInfo)); // Web - 유해가스 정보 등록
-router.post('/signUp', createDataHandler(accessControl)); // Web - 관리자 계정 회원가입
-router.post('/access_device', createDataHandler(deviceInfo)); // H/W - 기기 시작 시 서버에 기기id 등록
+router.post('/adminAccount', createDataHandler(accessControl)); // Web - 관리자 계정 회원가입
+router.post('/access_device', (req,res) => { // H/W - 기기 시작 시 서버에 기기id 등록
+  try {
+    const data = req.body;
+    const newData = new deviceInfo(data);
+    newData.save();
+    console.log(`${req.body.device_id} saved successfully`);
+    const device = {
+      device_id: req.body.device_id,
+      device_res: res
+    };
+    Device_res.push(device);//성공했다면 기기는 대기시키고 기기 연결 후에 다시 응답을 보내도록 설정
+    console.log("성공", Device_res.length);
+    // res.sendStatus(200);
+  } catch (error) {
+    console.error(`Error saving ${req.body.device_id}:`, error);
+    res.sendStatus(500);
+  }
+}); 
 /* 
  {
     "device_id": 기기에서 지정된 아이디, 
@@ -183,11 +200,25 @@ router.post('/link_user', (req, res) => { // Web- [작업자 - 기기] 연결시
     
     if(status){
       res.status(200).json(updatedUser + updatedDevice);
+      resDevice(device_id);
     }else{
       res.status(404).send("error");
     }
   }
 });
+
+function resDevice(deviceId){ // 대기 시켰던 기기를 연결 성공 후 다시 응답하게 하는 함수
+  const index = Device_res.findIndex(item => item.device_id === deviceId);
+  if(index !== -1){
+    const findRes = Device_res[index];
+    console.log("resDevice success [Device_id]: ", deviceId);
+    Device_res.splice(index, 1);
+    findRes.status(200).send("Connected Successfully");
+  } else {
+    console.log("resDevice success [Device_id]: ", deviceId);
+    findRes.status(500).send("Connected failed");
+  }
+}
 /**
  * UserInfo
  * { 
@@ -205,7 +236,7 @@ router.post('/link_user', (req, res) => { // Web- [작업자 - 기기] 연결시
  * 
  */
 
-router.post('/get_userList', async (req,res) => { // Web - 관리자가 작업자 리스트를 조회하려할때
+router.get('/get_userList', async (req,res) => { // Web - 관리자가 작업자 리스트를 조회하려할때
   try {
     const query = { work_id: null };
     const userList = await userInfo.find(query);
@@ -213,14 +244,14 @@ router.post('/get_userList', async (req,res) => { // Web - 관리자가 작업�
       res.status(200).json(userList);
       console.log('/get_userList : Get Data Successfully');
     } else {
-      res.json([]);
+      res.status(404).send("할당되지 않은 작업자가 아무것도 없습니다!");
     }
   } catch(err) {
     console.error("Error fetching data:", err);
     res.status(500).send("Error fetching data");
   }
   getDataHandler(userInfo);
-}); 
+});
 
 
 
