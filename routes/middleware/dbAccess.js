@@ -5,16 +5,30 @@ const workEnvDataSchema = new mongoose.Schema({ // Work_EnvData 스키마
   device_id: { type: String, required: true },
   work_id: { type: String, required: true },
   O2: { type: [Number], default: null },
-    H2S: { type: [Number], default: null },
-    CO: { type: [Number], default: null },
-    NO2: { type: [Number], default: null },
-    NH3: { type: [Number], default: null },
-    record_time: { type: Date, default: null },
-    temp: { type: Number, default:null },
-    humid: { type: Number, default: null },
-    discomfort: { type: Number, default: null }
+  H2S: { type: [Number], default: null },
+  CO: { type: [Number], default: null },
+  NO2: { type: [Number], default: null },
+  NH3: { type: [Number], default: null },
+  record_time: { type: Date, default: null },
+  temp: { type: Number, default:null },
+  humid: { type: Number, default: null },
+  discomfort: { type: Number, default: null }
 });
 
+// 작업 환경 측정 데이터
+const initEnvDataSchema = new mongoose.Schema({ // Initial_EnvData 스키마
+  device_id: { type: String, required: true },
+  work_id: { type: String, required: true },
+  O2: { type: [Number], default: null },
+  H2S: { type: [Number], default: null },
+  CO: { type: [Number], default: null },
+  NO2: { type: [Number], default: null },
+  NH3: { type: [Number], default: null },
+  record_time: { type: Date, default: null },
+  temp: { type: Number, default:null },
+  humid: { type: Number, default: null },
+  discomfort: { type: Number, default: null }
+});
 
 // 작업기기 정보
 const deviceInfoSchema = new mongoose.Schema({ // Device_Info 스키마
@@ -65,7 +79,7 @@ const gasInfoSchema = new mongoose.Schema({ // Gas_Info 스키마
 });
 // 초기 기기점검
 const initialDeviceCheckSchema = new mongoose.Schema({ // Initial_deviceCheck 스키마
-  admin_id: { type: String, required: true },
+  work_id: { type: String, required: true },
   device_id: { type: String, required: true },
   Is_check: { type: Boolean, default: false },
   Is_connect: { type: Boolean, default: false },
@@ -86,7 +100,7 @@ const workStatus = mongoose.model('Work_Status', workStatusSchema);
 const accessControl = mongoose.model('Access_Control', accessControlSchema);
 const gasInfo = mongoose.model('Gas_Info', gasInfoSchema);
 const initialDeviceCheck = mongoose.model('Initial_deviceCheck', initialDeviceCheckSchema);
-
+const initialEnvData = mongoose.model('Initial_envData', initEnvDataSchema);
 
 // 모듈 내보내기
 module.exports = {
@@ -97,5 +111,6 @@ module.exports = {
     workStatus,
     accessControl,
     gasInfo,
-    initialDeviceCheck
+    initialDeviceCheck,
+    initialEnvData
 };
