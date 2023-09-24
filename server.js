@@ -4,7 +4,9 @@ const port = 3000;
 
 const apiRoutes = require('./routes/apiRoutes');
 const webRoutes = require('./routes/webRoutes');
+const cors = require('cors');
 
+app.use(cors());
 // 미들웨어 설정
 app.use(express.json()); // JSON 데이터 파싱을 위한 미들웨어
 app.use(express.urlencoded({ extended: false })); // URL-encoded 데이터 파싱을 위한 미들웨어

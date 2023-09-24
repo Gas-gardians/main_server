@@ -160,10 +160,10 @@ router.post('/add_user', (req,res) => { // Web - 웹에서 관리자 권한으�
 
     const newData = new userInfo(data);
     newData.save();  
-    console.log(`${userInfo.modelName} saved successfully. user_id: ` + data.user_id );
+    console.log(`[add_user] ${userInfo.modelName} saved successfully. user_id: ` + data.user_id );
     res.sendStatus(200);
   } catch (error) {
-    console.error(`Error saving ${userInfo.modelName}:`, error);
+    console.error(`[add_user] Error saving ${userInfo.modelName}:`, error);
     res.sendStatus(500);
   }
 }); 
@@ -176,14 +176,19 @@ router.post('/add_user', (req,res) => { // Web - 웹에서 관리자 권한으�
  * }
  */
 
-function initialSetting(device_id, work_id){ // 기기 - 작업자 연결시 초기 기기점검을 위한 테이블 셋팅 
+function initialSetting(device_id, work_id, ){ // 기기 - 작업자 연결시 초기 기기점검을 위한 테이블 셋팅 
   try {
-    const data = { device_id: device_id, work_id: work_id };
-    const newData = new initialDeviceCheck(data);
+    const init_data = { device_id: device_id, work_id: work_id }; // 초기 기기점검 테이블 세팅
+    const newData = new initialDeviceCheck(init_data);
     newData.save();
-    console.log(`${initialDeviceCheck.modelName} saved successfully`);
+
+    const stat_data = { work_id: work_id, device_id: device_id, status: 0 }; // 작업 상태 테이블 세팅
+    const otherData = new workStatus(stat_data);
+    otherData.save();
+
+    console.log(`[initialSetting] initial Setting saved successfully`);
   } catch (error) {
-    console.error(`Error saving ${initialDeviceCheck.modelName}:`, error);
+    console.error(`[initialSetting] Error saving Settings:`, error);
   }
 }
 
@@ -224,7 +229,7 @@ router.post('/link_userDevice', (req, res) => { // Web- [작업자 - 기기] 연
     })
     .catch(error => {
       console.error('[link_userDevice] Error updating document:', error);
-      status  = !status;
+      status  = false;
     }); 
 
     deviceInfo.findOneAndUpdate(
@@ -238,7 +243,7 @@ router.post('/link_userDevice', (req, res) => { // Web- [작업자 - 기기] 연
     })
     .catch(error => {
       console.error('[link_userDevice] Error updating document:', error);
-      status  = !status;
+      status  = false;
       //res.status(404).send("error");
     }); 
     
@@ -254,7 +259,7 @@ router.post('/link_userDevice', (req, res) => { // Web- [작업자 - 기기] 연
 /**
  * 
  * { 
- *    "user_id": 선택된 사용자id,
+ *    "user_id": 선택된 사용자id,\
  *    "work_id": 연결된 작업id,
  *    "device_id": 연결된 기기id
  * }
@@ -276,22 +281,103 @@ router.get('/get_userList', async (req,res) => { // Web - 관리자가 작업자
   }
 });
 
-router.post('/waiting', (req,res)=>{ // H/W - 다음 작업이 주어질때까지 대기 상태
-  const device_id = req.body.device_id;
-  const device_check = initCheck_device.find(item => item === device_id);
-  const env_check = initCheck_env.find(item => item == device_id);
-  if(device_check != undefined){
-    res.status(200).send("[waiting] device_check");
-  } else if(env_check != undefined) {
-    res.status(200).send("[waiting] env_check");
-  } else {
-    res.status(500).send("[waiting] Waiting for next action");
+router.get('/get_deviceList', async (req,res) => { // Web - 관리자가 기기 리스트를 조회하려할때
+  try {
+    const query = { work_id: null };
+    const deviceList = await deviceInfo.find(query);
+    if(deviceList.length > 0){
+      console.log('[get_deviceList] Get Data Successfully');
+      res.status(200).json(deviceList);
+    } else {
+      res.status(404).send("할당되지 않은 기기가 아무것도 없습니다!");
+    }
+  } catch(err) {
+    console.error("[get_deviceList] Error fetching data:", err);
+    res.status(500).send("[get_deviceList] Error fetching data");
   }
+});
+
+router.post('/wait_connection', async (req, res)=> { // H/W - 기기 작업 연결 확인
+  const device_id = req.body.device_id;
+  try {
+    const data = await deviceInfo.findOne({ device_id: device_id });
+
+    if (data != undefined) {
+      res.status(200).send(data); // 작업에 할당된 기기일경우 작업기기 정보 전송
+    } else {
+      res.sendStatus(404);
+    }
+  } catch (error) {
+    console.error('[wait_connection] Error finding device in MongoDB:', error);
+    res.sendStatus(500); // 서버 오류 응답
+  }
+});
+/**
+ * {
+ *     "device_id": 해당 기기id
+ * }
+ */
+
+router.post('/wait_acction', async (req,res)=>{ // H/W - 다음 작업이 주어질때까지 대기 상태
+  const device_id = req.body.device_id;
+  // status: 0-다음 작업 대기, 1: 작업시작, -1: 작업종료, 2: 기기점검, 3: 작업환경측정
+  try {
+    const data = await workStatus.findOne({ device_id: device_id });
+
+    if (data != undefined) {
+      res.status(200).send(data.status); // 작업에 할당된 기기일경우 다음 작업 지시
+    } else {
+      res.sendStatus(404);
+    }
+  } catch (error) {
+    console.error('[wait_acction] Error finding device in MongoDB:', error);
+    res.sendStatus(500); // 서버 오류 응답
+  }
+
+  // const device_check = initCheck_device.find(item => item === device_id);
+  // const env_check = initCheck_env.find(item => item == device_id);
+  // if(device_check != undefined){
+  //   res.status(200).send("[waiting] device_check");
+  // } else if(env_check != undefined) {
+  //   res.status(200).send("[waiting] env_check");
+  // } else {
+  //   res.status(500).send("[waiting] Waiting for next action");
+  // }
 });
 /**
  * {
  *    "device_id": 해당 기기id
  * }
+ */
+
+
+router.post('/initCheck_specific', async(req, res) => {
+  const work_id = req.body.work_id;
+  const specific = req.body.specific;
+  
+  const data = await workInfo.findOne({ work_id: work_id });
+  const newData = data.env_status.push(specific);
+
+  workInfo.findOneAndUpdate(
+    { work_id: work_id},  
+    { $set: { env_status: newData } }
+  )
+  .then(updatedDevice => {
+    console.log("[initCheck_specific] success update data");
+    res.sendStatus(200);
+  })
+  .catch(error => {
+    console.error('[initCheck_specific] Error updating document:', error);
+    res.sendStatus(404);
+  }); 
+
+});
+/**
+ * {
+ *    "work_id": 해당 작업id
+ *    "specific": 발생한 특이사항 내용
+ * }
+ * 
  */
 
 
@@ -311,16 +397,21 @@ router.post('/get_envData', async (req,res) => { // Web - 작업시작 후 관�
     res.status(500).send("[get_envData] Error fetching data");
   }
 });
+/**
+ * {
+ *    "work_id": 해당 작업id
+ * }
+ */
 
 const gasInfoData = { _id: 0, gas_type: 1, gas_info: 1, gas_guide: 1 };
 router.get('/get_gasInfo', getDataHandler('gas_infos', gasInfoData));
 
 // const auth = { _id: 0, login_id: 1, login_pw: 1, auth: 1 };
-router.post('/account', (req,res) => { // 로그인하면 권한 내뱉기
+router.post('/account', async (req,res) => { // 로그인하면 권한 내뱉기
   const { login_id, login_pw } = req.body;
   try {
     // MongoDB에서 해당 login_id와 login_pw에 해당하는 auth를 검색
-    const user = accessControl.findOne({ login_id: login_id, login_pw: login_pw });
+    const user = await accessControl.findOne({ login_id: login_id, login_pw: login_pw });
 
     if (user) {
       console.log("성공");
@@ -335,16 +426,17 @@ router.post('/account', (req,res) => { // 로그인하면 권한 내뱉기
   }
 });
 
-// 여기서부터 apitest
-let initCheck_device = [];
-let initCheck_env = [];
-let initCheck_work = '';
+// let initCheck_device = [];
+// let initCheck_env = [];
+// let initCheck_work = '';
 router.post('/start_initCheck', (req,res) => { //Web 초기 점검 시작할때 기기리스트로 요청
   const arr = req.body.device;
+  const work_id = req.body.work_id;
+
   if(arr.length > 0){
-    initCheck_device = arr;
-    initCheck_work = req.body.work_id;
-    start_InitCheck();
+    // initCheck_device = arr;
+    // initCheck_work = work_id;
+    start_InitCheck(arr, work_id);
     res.sendStatus(200);
   } else {
     res.status(500).send('Data is not reached');
@@ -359,69 +451,41 @@ router.post('/start_initCheck', (req,res) => { //Web 초기 점검 시작할때 
  */
 
 
-function updateDeviceStatus(deviceId, updateFields) { 
+function updateDeviceStatus(deviceId, updateFields, workId, status) { 
   initialDeviceCheck.findOneAndUpdate(
-    { device_id: deviceId, work_id: initCheck_work },
+    { device_id: deviceId, work_id: workId },
     { $set: updateFields },
     { new: true }
-  )
-  .then(updatedData => {
-    console.log(`Device status updated successfully for device ID ${updatedData.deviceId}`);
-  })
-  .catch(error => {
+  ).catch(error => {
     console.error(`Error updating device status for device ID ${updatedData.deviceId}:`, error);
   });
+
+  workStatus.findOneAndUpdate(
+    { work_id: workId, user_id: user_id},  
+    { $set: { status: status } }, 
+  ).catch(error => {
+    console.error('[updateDeviceStatus] workStatus update error: ', error);
+    res.status(500).send("updateDeviceStatus: workStatus update error");
+  }); 
+
+  return;
 }
 
-function start_InitCheck() { // Web에서 초기점검을 시작하면 db에 정보 업데이트
-  if (initCheck_device.length > 0) {
-    for (let i = 0; i < initCheck_device.length; i++) {
-      const deviceId = initCheck_device[i];
-      const updateFields = { Is_check: true, Is_connect: true };
-      updateDeviceStatus(deviceId, updateFields);
-    }
-  } else {
+// 작업 아이디를 가지고 어떤 테이블에서 디바이스id 목록을 가져올것인가? deviceInfo 
+
+
+function start_InitCheck(arr, workId) { // Web에서 초기점검을 시작하면 db에 정보 업데이트
+  if (arr.length <= 0) {
     console.log("[start_InitCheck] Error!!: startInitCheck() has no data");
+    return;
+  }
+  for (let i = 0; i < arr.length; i++) {
+    const deviceId = arr[i];
+    const updateFields = { Is_check: true, Is_connect: true };
+    updateDeviceStatus(deviceId, updateFields, workId, 2);
   }
 }
 
-function finish_InitCheck() {  // 초기점검을 완료하면 db에 정보 업데이트
-  if (initCheck_device.length > 0) {
-    for (let i = 0; i < initCheck_device.length; i++) {
-      const deviceId = initCheck_device[i];
-      const updateFields = { Is_check: false };
-      updateDeviceStatus(deviceId, updateFields);
-    }
-  } else {
-    console.log("[finish_InitCheck] Error!!: finishInitCheck() has no data");
-  }
-}
-
-
-// 아직 리스타트 처리 안함
-function restart_InitCheck(work_id, res) { // Web에서 초기점검을 다시 시작하면 db에 기존 정보 초기화
-  initialDeviceCheck.updateMany(
-    { work_id: work_id },  
-    { $set: {
-      Is_check: false,
-      Is_connect: true,
-      Is_shock: false,
-      Is_help: false,
-      battery: false,
-      Is_camera: false,
-      Is_dark: false
-    }}, 
-    { new: true } 
-  )
-  .then(updatedData => {
-    initCheck_device = [];
-    console.log("[quit_initCheck] success");
-    res.sendStatus(200);
-  })
-  .catch(error => {
-    res.sendStatus(500).send(error);
-  });
-}
 
 
 
@@ -449,7 +513,34 @@ router.post('/verify_initCheck', async (req, res) => { //Web - 초기점검 시�
 
 router.post('/quit_initCheck', (req, res) => { // Web - 초기점검 종료 시 시간내 점검을 못했다 판단하고 기존 점검정보 초기화 
   const work_id = req.body.work_id;
-  restart_InitCheck(work_id, res);
+  workStatus.updateMany(
+    { work_id: work_id },  
+    { $set: { status: 0 } } 
+  ).catch(error => {
+    console.error('[updateDeviceStatus] workStatus update error: ', error);
+    res.status(500).send("updateDeviceStatus: workStatus update error");
+    return;
+  }); 
+
+  initialDeviceCheck.updateMany(
+    { work_id: work_id },  
+    { $set: {
+      Is_check: false,
+      Is_connect: true,
+      Is_shock: false,
+      Is_help: false,
+      battery: false,
+      Is_camera: false,
+      Is_dark: false
+    }}
+  ).catch(error => {
+    res.sendStatus(500).send(error);
+    return;
+  });
+
+  console.log("[quit_initCheck] success");
+  res.sendStatus(200);
+  return;
   //res.status(200).send("Quit Initial Device Check");
 });
 /**
@@ -458,11 +549,24 @@ router.post('/quit_initCheck', (req, res) => { // Web - 초기점검 종료 시 
  * }
  */
 
-router.get('/finish_initCheck', (req, res) => { // Web - 초기점검 확인 완료 시 정상적으로 종료
-  finish_InitCheck();
-  initCheck_device = [];
+router.post('/finish_initCheck', (req, res) => { // Web - 초기점검 확인 완료 시 정상적으로 종료
+  const work_id = req.body.work_id;
+
+  workStatus.updateMany(
+    { work_id: work_id },  
+    { $set: { status: 0 } }, 
+  ).catch(error => {
+    console.error('[finish_initCheck] workStatus update error: ', error);
+    res.status(500).send("finish_initCheck: workStatus update error");
+  }); 
+  // initCheck_device = [];
   res.status(200).send("Finished Initial Device Check");
 });
+/**
+ * {
+ *    "work_id": 해당 작업id
+ * } 
+ */
 
 
 router.post('/post_initCheck', (req, res)=> { // H/W - 일정시간 주기로 초기점검 상태 업데이트
@@ -492,16 +596,19 @@ router.post('/post_initCheck', (req, res)=> { // H/W - 일정시간 주기로 �
 
 
 //초기점검 시작 post - work_id
-router.post('/start_envCheck', async (req, res) => {
+router.post('/start_envCheck', (req, res) => {
   const work_id = req.body.work_id;
-  const deviceList = await deviceInfo.find({ work_id: work_id }); // 무조건 비동기!!!!
-  if(deviceList.length > 0){
-    initCheck_env = deviceList;
-    res.sendStatus(200);
-  } else {
-    console.log('[start_envCheck] Error!');
-    res.sendStatus(500);
-  }
+  //const deviceList = await deviceInfo.find({ work_id: work_id }); // 무조건 비동기!!!!
+  workStatus.updateMany(
+    { work_id: work_id },  
+    { $set: { status: 3 } }, 
+  ).catch(error => {
+    console.error('[start_envCheck] workStatus update error: ', error);
+    res.status(500).send("start_envCheck: workStatus update error");
+    return;
+  }); 
+
+  res.sendStatus(200);
 });
 /**
  * {
@@ -520,20 +627,37 @@ router.post('/get_envCheck', async (req, res) => {
     res.sendStatus(404);
   }
 });
+/**
+ * {
+ *    "work_id": 해당 작업id
+ * }
+ */
 
 
 //초기점검 종료
-router.get('/finish_envCheck', (req, res) => {
-  console.log(initCheck_env);
-  initCheck_env = [];
+router.post('/finish_envCheck', (req, res) => {
+  //console.log(initCheck_env);
+  workStatus.updateMany(
+    { work_id: work_id },  
+    { $set: { status: 0 } }, 
+  ).catch(error => {
+    console.error('[finish_envCheck] workStatus update error: ', error);
+    res.status(500).send("finish_envCheck: workStatus update error");
+    return;
+  }); 
   res.sendStatus(200);
 });
+/**
+ * {
+ *    "work_id": 해당 작업id
+ * }
+ */
 
 // 작업자 - 기기 해제시 기존 연결되었던 정보 초기화 work_id, device_id, user_id
 router.post('/unlink_userDevice', (req, res) => {
   const work_id = req.body.work_id;
   const user_id = req.body.user_id;
-  // const device_id = req.body.device_id;
+  const device_id = req.body.device_id;
 
   userInfo.findOneAndUpdate(
     { work_id: work_id, user_id: user_id},  
@@ -541,12 +665,21 @@ router.post('/unlink_userDevice', (req, res) => {
   ).catch(error => {
     console.error('[unlink_userDevice] UserInfo update error: ', error);
     res.status(500).send("Unlinked: UserInfo update error");
+    return;
   }); 
 
   deviceInfo.deleteOne({ work_id: work_id, user_id: user_id })
   .catch(error => {
     console.error('[unlink_userDevice] deviceInfo delete error: ', error);
     res.status(500).send("Unlinked: deviceInfo delete error");
+    return;
+  });
+
+  workStatus.deleteOne({ work_id: work_id, device_id: device_id })
+  .catch(error => {
+    console.error('[unlink_userDevice] workStatus delete error: ', error);
+    res.status(500).send("Unlinked: workStatus delete error");
+    return;
   });
   res.sendStatus(200);
 });
@@ -561,12 +694,125 @@ router.post('/unlink_userDevice', (req, res) => {
 // 초기 점검, 초기 작업환경, 작업 시작시 기기정보에서 데이터 가져오기 v
 
 //작업 시작 post - work_id
+router.post('/start_work', (req, res) => {
+  const work_id = req.body.work_id;
+  const time = new Date();
+
+  workInfo.findOneAndUpdate(
+    { work_id: work_id },  
+    { $set: { start_time: time } }, 
+  ).catch(error => {
+    console.error('[start_work] workInfo update error: ', error);
+    res.status(500).send("[start_work]: workInfo update error");
+    return;
+  }); 
+
+  workStatus.updateMany(
+    { work_id: work_id },  
+    { $set: { status: 1 } } 
+  ).catch(error => {
+    console.error('[start_work] workStatus update error: ', error);
+    res.status(500).send("start_work: workStatus update error");
+    return;
+  });
+  
+  res.sendStatus(200);
+});
+/**
+ * {
+ *    "work_id": 작업id
+ * }
+ */
+
+
 //작업 일시정지 post - work_id
+router.post('/pause_work', (req, res) =>{
+  const work_id = req.body.work_id;
+  workStatus.updateMany(
+    { work_id: work_id },  
+    { $set: { status: 0 } } 
+  )
+  .then(() => {
+    console.log('[pause_work] success pause work', work_id);
+    res.sendStatus(200);
+  })
+  .catch(error => {
+    console.error('[pause_work] workStatus update error: ', error);
+    res.status(500).send("pause_work: workStatus update error");
+  });
+});
+/**
+ * {
+ *    "work_id": 작업id
+ * }
+ */
+
 //작업 재개 post - work_id
-//작업 종료 get 
+router.post('/resume_work', (req, res) =>{
+  const work_id = req.body.work_id;
+  workStatus.updateMany(
+    { work_id: work_id },  
+    { $set: { status: 1 } } 
+  )
+  .then(() => {
+    console.log('[resume_work] success resume work', work_id);
+    res.sendStatus(200);
+  })
+  .catch(error => {
+    console.error('[resume_work] workStatus update error: ', error);
+    res.status(500).send("resume_work: workStatus update error");
+  });
+});
+/**
+ * {
+ *    "work_id": 작업id
+ * }
+ */
+
+//작업 종료 post 
 //     > 종료 시 기존 상태 정보 초기화
+router.post('/finish_work', async (req, res)=> {
+  const work_id = req.body.work_id;
+  const time = new Date();
 
+  workInfo.findOneAndUpdate(
+    { work_id: work_id },  
+    { $set: { end_time: time } }, 
+  ).catch(error => {
+    console.error('[finish_work] workInfo update error: ', error);
+    res.status(500).send("[finish_work]: workInfo update error");
+    return;
+  }); 
 
+  workStatus.updateMany(
+    { work_id: work_id },  
+    { $set: { status: -1 } } 
+  ).catch(error => {
+    console.error('[finish_work] workStatus update error: ', error);
+    res.status(500).send("finish_work: workStatus update error");
+    return;
+  });
+
+  userInfo.updateMany(
+    { work_id: work_id },  
+    { $set: { work_id: null } } 
+  ).catch(error => {
+    console.error('[finish_work] userInfo update error: ', error);
+    res.status(500).send("finish_work: userInfo update error");
+    return;
+  });
+
+  deviceInfo.deleteMany(
+    { work_id: work_id }
+  ).catch(error => {
+    console.error('[finish_work] userInfo update error: ', error);
+    res.status(500).send("finish_work: userInfo update error");
+    return;
+  });
+  res.sendStatus(200);
+});
+
+// 이상상태 발생 시 처리 기준 필요
 
 // const deviceInfo = { _id: 0, device_id: 1, user_id: 1, user_name: 1, user_birth: 1, user_health: 1 };
 // router.get('/get_deviceInfo', getDataHandler('device_infos', deviceInfo));

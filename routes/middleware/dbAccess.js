@@ -49,7 +49,7 @@ const userInfoSchema = new mongoose.Schema({ // User_Info 스키마
 const workInfoSchema = new mongoose.Schema({ // Work_Info 스키마
   work_id: { type: String, required: true },
   admin_info: { type: [String], required: true }, // [책임자 이름, 전화번호, 현장주소, 작업정보]
-  env_status: { type: String, default: null },
+  env_status: { type: [String], default: null },
   env_coce: { type: [String], default: null },
   start_time: { type: Date, default: null },
   end_time: { type: Date, default: null }
